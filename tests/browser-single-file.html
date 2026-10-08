@@ -15,7 +15,7 @@ try{
   ok(!doc.querySelector('model-viewer')&&!doc.querySelector('#view-piece')&&!doc.querySelector('#view-wall'),'Sin visor AR nativo ni botones Pieza/Muralla');
   ok(api.CATALOG.length>=14&&['enchapes','ladrillos','quiebravistas','pisos'].every(k=>api.CATALOG.some(p=>p.family===k)),'Catálogo con las cuatro familias de la cotización');
   doc.querySelector('#sec-muralla').click();
-  ok(api.APP_STATE.mode==='wall'&&[...doc.querySelectorAll('.subtab')].map(b=>b.textContent).join()==='Diseño,Medidas','Muralla con menú inferior Diseño y Medidas');
+  ok(api.APP_STATE.mode==='wall'&&!doc.querySelector('#panel-diseno').hidden&&!doc.querySelector('#panel-medidas').hidden&&[...doc.querySelectorAll('.group-t')].map(h=>h.textContent).join()==='Diseño,Medidas','Muralla en un solo panel: Diseño y Medidas');
   if(!api.APP_STATE.edit)doc.querySelector('#edit-shape').click();
   // Exercise same public UI events used by keyboard editing.
   doc.querySelector('#pin-1').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',shiftKey:true,bubbles:true}));

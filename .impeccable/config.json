@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-10-08T23:42:19.652Z",
+        "reason": "Claude: #photo es intencional; se oculta sin src y recibe la foto del usuario al subirla"
+      }
+    ]
+  }
+}
