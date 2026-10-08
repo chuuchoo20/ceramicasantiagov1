@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {area,clip,rect,buildLayout,homography,validQuad,opening} from '../src/geometry.js';
+import {DEFAULTS,LINES} from '../src/catalog.js';
+const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-7,`${a} != ${b}`);
+test('La homografía alcanza las cuatro esquinas y conserva una recta',()=>{const q=[[.1,.2],[.9,.05],[.75,.9],[.2,.7]],map=homography(q);[[0,0],[1,0],[1,1],[0,1]].forEach((p,i)=>map(...p).forEach((v,j)=>near(v,q[i][j])));const a=map(.1,.4),b=map(.5,.4),c=map(.9,.4);near((b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]),0);});
+test('Se rechazan esquinas cruzadas, colapsadas y cóncavas',()=>{assert.ok(validQuad([[0,0],[1,0],[1,1],[0,1]]));for(const q of [[[0,0],[1,1],[1,0],[0,1]],[[0,0],[.01,0],[.01,.01],[0,.01]],[[0,0],[1,0],[.2,.2],[0,1]]])assert.equal(validQuad(q),false);});
+test('El recorte conserva una pieza que cruza el borde aunque su centro esté fuera',()=>near(area(clip(rect(-.2,0,.24,.055),rect(0,0,1,1))),.04*.055));
+for(const pattern of ['half','threequarter','stack','soldier','herringbone'])test(`${pattern}: piezas sin solapamiento y dentro del perímetro`,()=>{const s={...DEFAULTS,width:.9,height:.7,pattern,shape:'slope',opening:true,openingWidth:.25,openingHeight:.2};const l=buildLayout(s,LINES.nacional.size);assert.ok(l.pieces.length>5);const o=opening(s),hole=rect(o.x,o.y,o.w,o.h);const polys=l.pieces.flatMap(p=>p.polys);for(const p of polys){assert.ok(area(p)>0);for(const [x,y] of p){assert.ok(x>=-1e-7&&x<=s.width+1e-7);assert.ok(y>=-1e-7&&y<=s.height+1e-7);}near(area(clip(p,hole)),0);}for(let i=0;i<polys.length;i++)for(let j=i+1;j<polys.length;j++)near(area(clip(polys[i],polys[j])),0);});
+test('Área neta y solo piezas completas',()=>{const l=buildLayout({...DEFAULTS,opening:true},LINES.nacional.size);near(l.area,DEFAULTS.width*DEFAULTS.height-DEFAULTS.openingWidth*DEFAULTS.openingHeight);const full=buildLayout({...DEFAULTS,cut:'whole',pattern:'herringbone'},LINES.importado.size);assert.equal(full.cuts,0);assert.ok(full.pieces.every(p=>p.full));});
+test('Catálogo: doce combinaciones de Santiago, sin cruces inventados',()=>assert.equal(Object.values(LINES).reduce((n,l)=>n+Object.values(l.colors).flat().length,0),12));

@@ -1,0 +1,11 @@
+node_modules/
+tmp/
+output/
+dist/
+.firebase/
+.npm-cache/
+firebase-debug.log*
+src/vendor/
+.env
+.env.*
+!.env.example

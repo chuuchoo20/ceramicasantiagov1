@@ -1,0 +1,61 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Validación GLB del simulador</title>
+<style>body{font:14px system-ui;padding:20px;background:#f7f4ed}pre{white-space:pre-wrap;padding:20px;background:white}iframe{width:100%;height:650px;border:1px solid #ccc}</style>
+<h1>Validación del GLB real en navegador</h1><pre id="result">Ejecutando…</pre><iframe id="app" src="../index.html"></iframe>
+<script type="module">
+const output=document.querySelector('#result'),frame=document.querySelector('#app'),lines=[];
+function ok(value,label){if(!value)throw Error(label);lines.push('PASS · '+label);output.textContent=lines.join('\n');}
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+try{
+  const deadline=Date.now()+30000;
+  while(!frame.contentWindow.SIMULATOR_READY){if(Date.now()>deadline)throw Error('App load timeout');await delay(100);}
+  const w=frame.contentWindow,doc=w.document,api=w.SIMULATOR;
+  // Primera pantalla: Objetos con el catálogo; desplegables cerrados; sin visor AR nativo.
+  ok(api.UI.section==='objetos'&&!doc.querySelector('#cards .pcard')?.hidden,'La primera pantalla es Objetos con la lista de productos');
+  ok([...doc.querySelectorAll('details.acc')].every(d=>!d.open),'Todo lo personalizable parte cerrado');
+  ok(!doc.querySelector('model-viewer')&&!doc.querySelector('#view-piece')&&!doc.querySelector('#view-wall'),'Sin visor AR nativo ni botones Pieza/Muralla');
+  ok(api.CATALOG.length>=14&&['enchapes','ladrillos','quiebravistas','pisos'].every(k=>api.CATALOG.some(p=>p.family===k)),'Catálogo con las cuatro familias de la cotización');
+  doc.querySelector('#sec-muralla').click();
+  ok(api.APP_STATE.mode==='wall'&&[...doc.querySelectorAll('.subtab')].map(b=>b.textContent).join()==='Diseño,Medidas','Muralla con menú inferior Diseño y Medidas');
+  if(!api.APP_STATE.edit)doc.querySelector('#edit-shape').click();
+  // Exercise same public UI events used by keyboard editing.
+  doc.querySelector('#pin-1').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',shiftKey:true,bubbles:true}));
+  const polygon=JSON.stringify(api.APP_STATE.polygon);
+  doc.querySelector('[data-pattern="herringbone"]').click();
+  ok(JSON.stringify(api.APP_STATE.polygon)===polygon,'Cambiar patrón conserva el polígono');
+  const photoCanvas=document.createElement('canvas');photoCanvas.width=640;photoCanvas.height=480;
+  const context=photoCanvas.getContext('2d');context.fillStyle='#d4c9ba';context.fillRect(0,0,640,480);context.fillStyle='#81725e';context.fillRect(60,330,520,150);
+  const photoBlob=await new Promise(resolve=>photoCanvas.toBlob(resolve,'image/png'));
+  const transfer=new w.DataTransfer();transfer.items.add(new w.File([photoBlob],'foto-prueba.png',{type:'image/png'}));doc.querySelector('#photo-file').files=transfer.files;doc.querySelector('#photo-file').dispatchEvent(new w.Event('change',{bubbles:true}));
+  for(let i=0;i<100&&!api.APP_STATE.photoURL;i++)await delay(30);
+  ok(!!api.APP_STATE.photoURL&&!doc.querySelector('#photo').hidden,'Carga y decodificación de fotografía local');
+  ok(JSON.stringify(api.APP_STATE.polygon)===polygon,'Subir una foto no restablece el recorte');
+  const result=await api.getExport(),buffer=await result.blob.arrayBuffer(),view=new DataView(buffer);
+  ok(result.blob.size>0,'El Blob GLB no está vacío');
+  ok(view.getUint32(0,true)===0x46546c67,'Cabecera binaria GLB válida');
+  ok(view.getUint32(4,true)===2,'glTF versión 2');
+  const jsonLength=view.getUint32(12,true),json=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,20,jsonLength)));
+  const node=json.nodes.find(n=>n.mesh!==undefined);
+  ok(json.nodes.length===1&&json.meshes.length===1,'Solo se exporta la malla final CSG');
+  ok(!json.extensionsUsed?.includes('EXT_mesh_gpu_instancing'),'GLB estándar, sin instancias ni adaptador');
+  ok(node.extras.operation==='CSG_INTERSECTION'&&node.extras.units==='metres','Intersección física exportada en metros');
+  const primitive=json.meshes[node.mesh].primitives[0],accessor=json.accessors[primitive.attributes.POSITION],bufferView=json.bufferViews[accessor.bufferView];
+  ok(['NORMAL','TEXCOORD_0'].every(name=>json.accessors[primitive.attributes[name]]?.count===accessor.count),'Normales y UVs exportadas para cada vértice');
+  ok(!!json.materials[primitive.material].pbrMetallicRoughness,'Material PBR válido en el GLB');
+  const binaryStart=20+jsonLength+8+(bufferView.byteOffset||0)+(accessor.byteOffset||0),positions=api.mesh.geometry.attributes.position;
+  ok(accessor.count===positions.count,'Todos los vértices de la malla cortada están en el GLB');
+  for(let i=0;i<positions.count;i++)for(let j=0;j<3;j++){
+    const value=view.getFloat32(binaryStart+i*(bufferView.byteStride||12)+j*4,true);
+    if(value!==positions.array[i*3+j])throw Error('GLB vertex differs from CSG result');
+  }
+  ok(true,'Cada vértice GLB es idéntico al corte CSG visible');
+  const estimate=api.estimateUnits(api.APP_STATE,api.CONFIG.formats[api.APP_STATE.variant]);
+  ok(doc.querySelector('#count-value').textContent.startsWith(String(estimate.total)),'Presupuesto por superficie más 5%');
+  doc.querySelector('#sec-ra').click();
+  ok(!doc.querySelector('#panel-espacio').hidden&&doc.querySelector('#next-action').textContent.includes('Ver en mi pared'),'RA: «Ver en mi pared» es la única RA');
+  doc.querySelector('#sec-objetos').click();doc.querySelector('[data-cat="ladrillos"]').click();doc.querySelector('[data-product="ladrillo-ducto"]').click();
+  ok(api.APP_STATE.mode==='tile'&&doc.querySelector('#next-action').disabled,'Ducto: solo pieza individual');
+  doc.querySelector('#sec-muralla').click();
+  ok(!doc.querySelector('#wall-na').hidden,'La muralla explica por qué el Ducto no se arma');
+  output.textContent=lines.join('\n')+'\n\nTODAS LAS VALIDACIONES PASARON · '+buffer.byteLength+' bytes';
+}catch(error){output.textContent=lines.join('\n')+'\nFAIL · '+error.stack;}
+</script></html>

@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {shareURL,readShare,sanitizeConfig} from '../src/share.js';
+import {DEFAULTS} from '../src/catalog.js';
+test('El QR conserva configuración y tipo de pieza sin incluir fotos',()=>{const s={...DEFAULTS,model:'brick',brick:[.36,.113,.14],color:'Marfil',photo:'privada.jpg'};const url=shareURL('https://example.web.app/?old=1#old',s,'grooved'),parsed=readShare(new URL(url).hash);assert.deepEqual(parsed.state.brick,s.brick);assert.equal(parsed.brickType,'grooved');assert.equal(parsed.state.color,'Marfil');assert.equal(url.includes('privada'),false);assert.equal(new URL(url).search,'');});
+test('El enlace inicial es compacto y reconstruye los valores por defecto',()=>{const url=shareURL('https://example.web.app/',DEFAULTS);assert.ok(url.length<180);assert.deepEqual(readShare(new URL(url).hash).state,DEFAULTS);});
+test('Valores externos inválidos no fuerzan geometría ilimitada ni rutas externas',()=>{const s=sanitizeConfig({width:1e9,height:-1,model:'malicioso',brick:[Infinity,1,1],mortar:'url(https://bad)',paths:{textures:'https://bad'},opening:'true'});assert.equal(s.width,6);assert.equal(s.height,.3);assert.equal(s.model,'wall');assert.equal(s.paths,undefined);assert.equal(s.opening,false);assert.deepEqual(s.brick,DEFAULTS.brick);assert.equal(s.mortar,DEFAULTS.mortar);});
+test('Enlaces rotos se rechazan sin procesar contenido arbitrario',()=>{assert.equal(readShare('#other'),null);assert.throws(()=>readShare('#p=%ZZ'));assert.throws(()=>readShare('#p='+encodeURIComponent(JSON.stringify({v:2}))));assert.throws(()=>readShare('#p='+'a'.repeat(6001)));});
