@@ -5,8 +5,8 @@ bajo el header de ceramicasantiago.cl. Responder siempre en español.
 
 ## Reglas de este proyecto
 
-- **No hacer `git push` ni conectar el remoto de GitHub** (`NicolasArancibia/Ceramica-3D`)
-  hasta que el usuario lo pida explícitamente. Los commits son solo locales.
+- Repositorio: https://github.com/chuuchoo20/ceramicasantiagov1 (rama `main`, remoto `origin`).
+  Hacer `git push` solo cuando el usuario lo pida; los commits quedan locales hasta entonces.
 - **No publicar en Firebase** (`publicar.bat` / `npm run deploy`) sin confirmación.
 - Cambios quirúrgicos: el proyecto está casi listo, se ajustan detalles.
 - Respetar el sistema de diseño de ceramicasantiago.cl (tokens en `:root` de `index.html`):
@@ -17,14 +17,18 @@ bajo el header de ceramicasantiago.cl. Responder siempre en español.
 
 ## Dónde está cada cosa
 
-- **`index.html` es la app real**: todo el HTML, CSS (`<style>`, l. ~10–200) y JS
-  (`<script type="module">`, l. ~305–1184) en un archivo. Sin bundler.
+- **`index.html` es la app real**: todo el HTML, CSS (`<style>`, l. ~10–210) y JS
+  (`<script type="module">`, l. ~315–1229) en un archivo. Sin bundler.
   - `CONFIG` (colores, texturas, patrones, límites) y `CATALOG` (productos, formatos,
     variantes) al inicio del módulo.
   - Geometría de muralla: `buildLayout`, `createCutWall` (CSG con three-bvh-csg).
   - Estado: `APP_STATE`, `change()`, historial `commit()`/`travel()`, `persist()` en localStorage.
-  - UI: `renderCatalog`, `renderProductControls`, `syncUI`, `renderSubnav`,
-    `selectSection` (Objetos · Muralla · RA), `createControls`.
+  - Medidas: ancho × alto son siempre el rectángulo que encierra el contorno
+    (`fitFrameToPolygon`, llamado desde `movePin`); `syncSize` actualiza los campos.
+  - UI: `renderCatalog`, `renderProductControls`, `syncUI`, `renderNext` (botón rojo
+    del paso siguiente), `selectSection` (Objetos · Muralla · RA), `createControls`.
+  - Layout: en escritorio (≥ 960 px) visor a la izquierda y un solo panel a la derecha
+    (pestañas, opciones con scroll, botón fijo); el botón ⇄ (`#swap-side`) los invierte.
   - Exportación GLB: `getExport`, `download`, `validateGLB`.
 - **`ra/`**: RA propia con OpenCV.js; `index.html` carga `ra/session.js` y
   `ra/tutorial.js` solo al abrir la cámara. Detalle en `docs/RA-OPENCV.md`.
