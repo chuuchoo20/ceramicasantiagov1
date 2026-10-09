@@ -49,6 +49,8 @@ button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.45}
 .view-tools{position:absolute;right:10px;top:10px;z-index:6;display:flex;gap:6px}
 .tool{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:#ffffffe8;display:grid;place-items:center;font-size:18px;box-shadow:0 2px 8px #0000000f}
 .tool[aria-pressed=true]{background:var(--red);border-color:var(--red);color:#fff}
+#swap-side[aria-pressed=true]{background:#ffffffe8;border-color:var(--line);color:var(--ink)}
+.tool.desk-only{display:none}
 .stage-hint{position:absolute;left:10px;right:10px;bottom:10px;z-index:5;text-align:center;pointer-events:none}
 .stage-hint span{display:inline-block;max-width:100%;font-size:11px;font-weight:600;color:var(--ink);background:#ffffffe8;border:1px solid var(--line);box-shadow:0 2px 8px #0000000f;padding:7px 12px;border-radius:999px;line-height:1.35}
 .stage-hint small{display:block;font-weight:500;opacity:.85;font-size:10px}
@@ -197,6 +199,11 @@ details.acc[open]>summary .ph{transform:rotate(180deg)}
   .subnav{grid-column:2;grid-row:3;position:static;padding:12px 16px 16px;background:#fff;border-left:1px solid var(--line);border-top:1px solid var(--line)}
   .stage{flex:1;height:auto;border:1px solid var(--line);border-bottom:0;border-radius:4px 4px 0 0}
   .summary{border:1px solid var(--line);border-radius:0 0 4px 4px}
+  .tool.desk-only{display:grid}
+  /* Botón «Cambiar de lado»: opciones a la izquierda y visor a la derecha */
+  .app.swapped{grid-template-columns:420px minmax(0,1fr)}
+  .app.swapped .viewer-wrap{grid-column:2}
+  .app.swapped :is(.sections,.content,.subnav){grid-column:1;border-left:0;border-right:1px solid var(--line)}
 }
 @media (max-width:380px){.sec{font-size:12px;gap:5px}.sec small{display:none}.next{font-size:12px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -214,7 +221,7 @@ details.acc[open]>summary .ph{transform:rotate(180deg)}
 <section id="stage" class="stage" aria-label="Vista 3D" tabindex="0">
   <img id="photo" alt="Fotografía de tu espacio" hidden>
   <div id="webgl"></div>
-  <div class="view-tools"><button id="undo" class="tool" aria-label="Deshacer" title="Deshacer" disabled><i class="ph ph-arrow-u-up-left" aria-hidden="true"></i></button><button id="redo" class="tool" aria-label="Rehacer" title="Rehacer" disabled><i class="ph ph-arrow-u-up-right" aria-hidden="true"></i></button><button id="edit-shape" class="tool" aria-pressed="false" aria-label="Ajustar contorno" title="Ajustar contorno"><i class="ph ph-polygon" aria-hidden="true"></i></button><button id="reset-camera" class="tool" aria-label="Centrar vista" title="Centrar vista"><i class="ph ph-arrows-in" aria-hidden="true"></i></button></div>
+  <div class="view-tools"><button id="undo" class="tool" aria-label="Deshacer" title="Deshacer" disabled><i class="ph ph-arrow-u-up-left" aria-hidden="true"></i></button><button id="redo" class="tool" aria-label="Rehacer" title="Rehacer" disabled><i class="ph ph-arrow-u-up-right" aria-hidden="true"></i></button><button id="edit-shape" class="tool" aria-pressed="false" aria-label="Ajustar contorno" title="Ajustar contorno"><i class="ph ph-polygon" aria-hidden="true"></i></button><button id="reset-camera" class="tool" aria-label="Centrar vista" title="Centrar vista"><i class="ph ph-arrows-in" aria-hidden="true"></i></button><button id="swap-side" class="tool desk-only" aria-pressed="false" aria-label="Cambiar de lado el visor y las opciones" title="Cambiar de lado"><i class="ph ph-arrows-left-right" aria-hidden="true"></i></button></div>
   <div id="pins" hidden></div>
   <div id="canvas-nav" class="canvas-nav" aria-label="Navegación del lienzo" hidden><button id="zoom-out" aria-label="Alejar"><i class="ph ph-minus" aria-hidden="true"></i></button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Acercar"><i class="ph ph-plus" aria-hidden="true"></i></button><button id="fit-canvas" aria-label="Encuadrar"><i class="ph ph-frame-corners" aria-hidden="true"></i></button></div>
   <div class="stage-hint"><span id="hint">Gira la pieza para ver sus caras</span></div>
@@ -1148,6 +1155,10 @@ function createControls(){
   $('undo').onclick=()=>travel(past,future);$('redo').onclick=()=>travel(future,past);
   document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!/INPUT|SELECT/.test(e.target.tagName)){e.preventDefault();e.shiftKey?travel(future,past):travel(past,future);}});
   $('reset-camera').onclick=()=>{if(editing())fitCanvas();else fitCamera();};
+  // Solo estético (escritorio): opciones a la izquierda o a la derecha. Se recuerda en este navegador.
+  const setSide=swapped=>{document.querySelector('.app').classList.toggle('swapped',swapped);$('swap-side').setAttribute('aria-pressed',String(swapped));};
+  try{setSide(localStorage.getItem(CONFIG.storageKey+'-lado')==='izquierda');}catch{}
+  $('swap-side').onclick=()=>{const swapped=!document.querySelector('.app').classList.contains('swapped');setSide(swapped);try{localStorage.setItem(CONFIG.storageKey+'-lado',swapped?'izquierda':'derecha');}catch{}};
   // Puntos del contorno
   for(let i=0;i<4;i++){
     const pin=document.createElement('div');pin.className='pin';pin.id='pin-'+i;pin.tabIndex=0;pin.setAttribute('role','button');pin.textContent=i+1;let pointer=null;
